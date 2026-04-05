@@ -1,3 +1,14 @@
+---
+title: FocusX OpenEnv
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: docker
+tags:
+  - openenv
+---
+
+
 Project: FocusX – AI Productivity Environment
 
 Overview
