@@ -1,0 +1,19 @@
+name: FocusX
+description: AI Productivity Environment with tasks, rewards, and distractions
+
+entry_point: env.py
+
+actions:
+  - study
+  - rest
+  - ignore
+
+observations:
+  - focus
+  - energy
+  - tasks_left
+  - distraction
+
+reward: Based on task completion and focus management
+
+episodes: finite
