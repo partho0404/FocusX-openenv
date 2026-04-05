@@ -1,0 +1,13 @@
+[project]
+name = "focusx-openenv"
+version = "0.1.0"
+description = "AI Productivity OpenEnv Environment"
+authors = [
+    {name = "Partho"}
+]
+
+dependencies = []
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
