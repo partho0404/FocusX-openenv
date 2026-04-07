@@ -1,5 +1,15 @@
 from env import FocusEnv
 import random
+import os
+from openai import OpenAI
+
+API_BASE_URL = os.getenv("API_BASE_URL")
+API_KEY = os.getenv("API_KEY")
+
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=API_KEY
+)
 
 ACTIONS = ["study", "rest", "scroll"]
 
@@ -12,7 +22,6 @@ epsilon = 0.2
 scores = []
 actions_taken = []
 
-
 def get_state_key(state):
     return (
         state["energy"] // 10,
@@ -20,19 +29,16 @@ def get_state_key(state):
         state["distraction"] // 10
     )
 
-
 def choose_action(state):
     key = get_state_key(state)
 
     if key not in Q:
         Q[key] = {a: 0 for a in ACTIONS}
 
-    # ε-greedy exploration
     if random.random() < epsilon:
         return random.choice(ACTIONS)
 
     return max(Q[key], key=Q[key].get)
-
 
 def update_q(state, action, reward, next_state):
     key = get_state_key(state)
@@ -47,61 +53,29 @@ def update_q(state, action, reward, next_state):
         reward + gamma * max_future - Q[key][action]
     )
 
+def call_llm(state):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""
+You are a productivity assistant.
 
-def run():
-    env = FocusEnv()
+State:
+Energy: {state['energy']}
+Focus: {state['focus']}
+Distraction: {state['distraction']}
 
-    print("[START] task=FocusX", flush=True)
+Choose best action:
+study / rest / scroll
 
-    total_reward = 0
+Only output one word.
+"""
+                }
+            ],
+            temperature=0.3
+        )
 
-    for episode in range(3):
-        state = env.reset()
-
-        for step in range(10):
-            action = choose_action(state)
-
-            next_state, reward, done, _ = env.step(action)
-
-            update_q(state, action, reward, next_state)
-
-            state = next_state
-
-            if done:
-                break
-
-    state = env.reset()
-
-    for step in range(10):
-        action = choose_action(state)
-
-        state, reward, done, _ = env.step(action)
-
-        total_reward += reward
-
-        actions_taken.append(action)
-        scores.append(reward)
-
-        print(f"[STEP] step={step+1} reward={reward}", flush=True)
-
-        advice = env.get_advice()
-        print(f"[INFO] action={action} advice={advice}", flush=True)
-
-        if done:
-            break
-
-    print(f"[END] task=FocusX score={total_reward}", flush=True)
-
-    print("\n=== VISUAL SUMMARY ===", flush=True)
-    print(f"Total Steps: {len(actions_taken)}", flush=True)
-    print(f"Actions Taken: {actions_taken}", flush=True)
-    print(f"Rewards: {scores}", flush=True)
-
-    if scores:
-        print(f"Average Reward: {sum(scores)/len(scores):.2f}", flush=True)
-        print(f"Max Reward: {max(scores)}", flush=True)
-        print(f"Min Reward: {min(scores)}", flush=True)
-
-
-if __name__ == "__main__":
-    run()
+        action = response.choices[0].message.content.strip().
