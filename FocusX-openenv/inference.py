@@ -1,26 +1,27 @@
 from env import FocusEnv
 
-env = FocusEnv()
+def run():
+    env = FocusEnv()
+    
+    print("[START] task=FocusX", flush=True)
 
-def run_inference():
     state = env.reset()
     
-    results = []
-    
-    done = False
-    while not done:
-        action = "study"  # simple baseline policy
+    total_reward = 0
+
+    for step in range(5):
+        action = "study"  # or any valid action
         state, reward, done, info = env.step(action)
         
-        results.append({
-            "state": state,
-            "reward": reward,
-            "done": done
-        })
-    
-    return results
+        total_reward += reward
+
+        print(f"[STEP] step={step+1} reward={reward}", flush=True)
+
+        if done:
+            break
+
+    print(f"[END] task=FocusX score={total_reward}", flush=True)
 
 
 if __name__ == "__main__":
-    output = run_inference()
-    print(output)
+    run()
