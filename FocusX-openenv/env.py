@@ -1,68 +1,65 @@
 import random
 
 class FocusEnv:
-    def __init__(self, tasks=3, max_steps=15):
-        self.initial_tasks = tasks
-        self.max_steps = max_steps
+    def __init__(self):
+        self.user_type = random.choice(["lazy", "focused", "distracted"])
         self.reset()
 
     def reset(self):
-        self.focus = 70
-        self.energy = 60
-        self.tasks_left = self.initial_tasks
-        self.step_count = 0
-        self.distraction = False
+        self.energy = 100
+        self.focus = 50
+        self.distraction = 30
+        self.streak = 0
+        return self._get_state()
 
-        return self.state()
+    def step(self, action):
+        reward = 0
 
-    def state(self):
+        if action == "study":
+            self.focus += 10
+            self.energy -= 10
+            self.distraction -= 5
+            self.streak += 1
+            reward += 10 + self.streak * 2
+
+        elif action == "scroll":
+            self.focus -= 10
+            self.distraction += 15
+            self.energy -= 5
+            self.streak = 0
+            reward -= 10
+
+        elif action == "rest":
+            self.energy += 15
+            self.distraction -= 5
+            reward += 5
+
+        # Personalization
+        if self.user_type == "lazy":
+            reward += 5 if action == "study" else -5
+
+        if self.user_type == "distracted" and action == "scroll":
+            reward -= 15
+
+        # Clamp
+        self.energy = max(0, min(100, self.energy))
+        self.focus = max(0, min(100, self.focus))
+        self.distraction = max(0, min(100, self.distraction))
+
+        done = self.energy == 0
+
+        return self._get_state(), reward, done, {}
+
+    def _get_state(self):
         return {
-            "focus": self.focus,
             "energy": self.energy,
-            "tasks_left": self.tasks_left,
+            "focus": self.focus,
             "distraction": self.distraction
         }
 
-    def get_state(self):
-        return self.state()
-
-    def step(self, action):
-        self.step_count += 1
-
-        # Random distraction
-        self.distraction = random.random() < 0.3
-
-        reward = 0
-
-        if action == "STUDY":
-            self.energy -= 10
-            self.tasks_left -= 1
-            reward += 10
-
-        elif action == "SCROLL":
-            self.focus -= 15
-            reward -= 8
-
-        elif action == "BREAK":
-            self.energy += 10
-            reward += 2
-
-        elif action == "IGNORE":
-            if self.distraction:
-                self.focus += 5
-                reward += 5
-
-        # Clamp values
-        self.focus = max(0, min(100, self.focus))
-        self.energy = max(0, min(100, self.energy))
-
-        done = (
-            self.tasks_left <= 0
-            or self.step_count >= self.max_steps
-        )
-
-        info = {
-            "step_count": self.step_count
-        }
-
-        return self.state(), reward, done, info
+    def get_advice(self):
+        if self.distraction > 70:
+            return "Reduce distractions"
+        if self.energy < 30:
+            return "Take a break"
+        return "Stay focused"
