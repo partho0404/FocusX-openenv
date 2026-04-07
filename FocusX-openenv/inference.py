@@ -1,18 +1,14 @@
 from env import FocusEnv
 import random
 
-# 🔥 Actions
 ACTIONS = ["study", "rest", "scroll"]
 
-# 🔥 Q-table
 Q = {}
 
-# 🔥 Hyperparameters
 alpha = 0.1
 gamma = 0.9
 epsilon = 0.2
 
-# 🔥 Visualization storage
 scores = []
 actions_taken = []
 
@@ -59,7 +55,6 @@ def run():
 
     total_reward = 0
 
-    # 🔥 TRAINING PHASE
     for episode in range(3):
         state = env.reset()
 
@@ -75,7 +70,6 @@ def run():
             if done:
                 break
 
-    # 🔥 EVALUATION PHASE
     state = env.reset()
 
     for step in range(10):
@@ -85,13 +79,11 @@ def run():
 
         total_reward += reward
 
-        # 🔥 Store for visualization
         actions_taken.append(action)
         scores.append(reward)
 
         print(f"[STEP] step={step+1} reward={reward}", flush=True)
 
-        # 🔥 AI Advice (extra intelligence)
         advice = env.get_advice()
         print(f"[INFO] action={action} advice={advice}", flush=True)
 
@@ -100,7 +92,6 @@ def run():
 
     print(f"[END] task=FocusX score={total_reward}", flush=True)
 
-    # 🔥 VISUAL SUMMARY (AFTER END → safe)
     print("\n=== VISUAL SUMMARY ===", flush=True)
     print(f"Total Steps: {len(actions_taken)}", flush=True)
     print(f"Actions Taken: {actions_taken}", flush=True)
