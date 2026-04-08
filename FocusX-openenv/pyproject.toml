@@ -6,7 +6,15 @@ authors = [
     {name = "Partho"}
 ]
 
-dependencies = []
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "openenv>=0.2.0",
+    "openai>=1.0.0"  
+]
+
+[project.scripts]
+server = "server.app:main"
 
 [build-system]
 requires = ["setuptools", "wheel"]
