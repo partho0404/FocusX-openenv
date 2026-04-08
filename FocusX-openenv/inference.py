@@ -1,24 +1,7 @@
 from env import FocusEnv
 import random
 import os
-
-# 🔥 Try importing OpenAI safely
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
-
-# 🔥 ENV VARIABLES (DO NOT HARDCODE)
-API_BASE_URL = os.getenv("API_BASE_URL")
-API_KEY = os.getenv("API_KEY")
-
-# 🔥 Setup client safely
-client = None
-if OpenAI and API_BASE_URL and API_KEY:
-    try:
-        client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
-    except Exception:
-        client = None
+import requests   # ✅ correct
 
 # 🔥 Actions
 ACTIONS = ["study", "rest", "scroll"]
@@ -31,12 +14,11 @@ alpha = 0.1
 gamma = 0.9
 epsilon = 0.2
 
-# 🔥 Logging
+# 🔥 Logs
 scores = []
 actions_taken = []
 
 
-# 🔥 Convert state to discrete key
 def get_state_key(state):
     return (
         state["energy"] // 10,
@@ -45,7 +27,6 @@ def get_state_key(state):
     )
 
 
-# 🔥 Q-learning action selection
 def choose_action(state):
     key = get_state_key(state)
 
@@ -58,7 +39,6 @@ def choose_action(state):
     return max(Q[key], key=Q[key].get)
 
 
-# 🔥 Q-learning update
 def update_q(state, action, reward, next_state):
     key = get_state_key(state)
     next_key = get_state_key(next_state)
@@ -73,15 +53,21 @@ def update_q(state, action, reward, next_state):
     )
 
 
-# 🔥 SAFE LLM CALL (Phase 2 requirement)
+# ✅ LLM CALL (PROXY SAFE)
 def call_llm(state):
-    if client is None:
-        return "study"
-
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
+        url = os.environ["API_BASE_URL"]
+        api_key = os.environ["API_KEY"]
+        model = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model,
+            "messages": [
                 {
                     "role": "user",
                     "content": f"""
@@ -97,11 +83,13 @@ Only output one word.
 """
                 }
             ],
-            temperature=0.3
-        )
+            "temperature": 0.3
+        }
 
-        # ✅ SAFE extraction (NO syntax error)
-        text = response.choices[0].message.content
+        response = requests.post(url, headers=headers, json=payload)
+        data = response.json()
+
+        text = data["choices"][0]["message"]["content"]
         action = text.strip().lower()
 
         if action not in ACTIONS:
@@ -121,43 +109,38 @@ def run():
 
     total_reward = 0
 
-    # 🔥 TRAINING
+    # TRAIN
     for _ in range(3):
         state = env.reset()
 
         for _ in range(10):
             action = choose_action(state)
-
             next_state, reward, done, _ = env.step(action)
 
             update_q(state, action, reward, next_state)
-
             state = next_state
 
             if done:
                 break
 
-    # 🔥 EVALUATION
+    # EVALUATION
     state = env.reset()
 
     for step in range(10):
 
-        # 🔥 Ensure at least ONE LLM call
         if step == 0:
-            action = call_llm(state)
+            action = call_llm(state)   # ✅ mandatory API call
         else:
             action = choose_action(state)
 
         state, reward, done, _ = env.step(action)
 
         total_reward += reward
-
         actions_taken.append(action)
         scores.append(reward)
 
         print(f"[STEP] step={step+1} reward={reward}", flush=True)
 
-        # Optional info (safe)
         try:
             advice = env.get_advice()
             print(f"[INFO] action={action} advice={advice}", flush=True)
@@ -169,7 +152,6 @@ def run():
 
     print(f"[END] task=FocusX score={total_reward}", flush=True)
 
-    # 🔥 SAFE summary (after END)
     print("\n=== SUMMARY ===", flush=True)
     print(f"Actions: {actions_taken}", flush=True)
     print(f"Rewards: {scores}", flush=True)
@@ -183,5 +165,4 @@ if __name__ == "__main__":
     try:
         run()
     except Exception as e:
-        # 🔥 FINAL SAFETY (prevents crash fail)
         print(f"[FATAL ERROR] {e}", flush=True)
