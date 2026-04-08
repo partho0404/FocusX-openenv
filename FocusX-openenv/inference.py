@@ -1,24 +1,22 @@
 from env import FocusEnv
 import random
 import os
-import requests   # ✅ correct
+import requests
+import json
 
-# 🔥 Actions
+# 🔥 ACTIONS
 ACTIONS = ["study", "rest", "scroll"]
 
-# 🔥 Q-table
+# 🔥 Q-TABLE
 Q = {}
 
-# 🔥 Hyperparameters
+# 🔥 HYPERPARAMETERS
 alpha = 0.1
 gamma = 0.9
 epsilon = 0.2
 
-# 🔥 Logs
-scores = []
-actions_taken = []
 
-
+# 🔥 STATE KEY
 def get_state_key(state):
     return (
         state["energy"] // 10,
@@ -27,6 +25,7 @@ def get_state_key(state):
     )
 
 
+# 🔥 ACTION SELECTION
 def choose_action(state):
     key = get_state_key(state)
 
@@ -39,6 +38,7 @@ def choose_action(state):
     return max(Q[key], key=Q[key].get)
 
 
+# 🔥 Q UPDATE
 def update_q(state, action, reward, next_state):
     key = get_state_key(state)
     next_key = get_state_key(next_state)
@@ -53,12 +53,15 @@ def update_q(state, action, reward, next_state):
     )
 
 
-# ✅ LLM CALL (PROXY SAFE)
+# 🔥 LLM CALL (SAFE)
 def call_llm(state):
     try:
-        url = os.environ["API_BASE_URL"]
-        api_key = os.environ["API_KEY"]
+        url = os.environ.get("API_BASE_URL")
+        api_key = os.environ.get("API_KEY")
         model = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+        if not url or not api_key:
+            return "study"
 
         headers = {
             "Authorization": f"Bearer {api_key}",
@@ -71,7 +74,6 @@ def call_llm(state):
                 {
                     "role": "user",
                     "content": f"""
-State:
 Energy: {state['energy']}
 Focus: {state['focus']}
 Distraction: {state['distraction']}
@@ -86,7 +88,7 @@ Only output one word.
             "temperature": 0.3
         }
 
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=10)
         data = response.json()
 
         text = data["choices"][0]["message"]["content"]
@@ -102,14 +104,16 @@ Only output one word.
         return "study"
 
 
+# 🔥 MAIN RUN FUNCTION
 def run():
     env = FocusEnv()
 
     print("[START] task=FocusX", flush=True)
 
     total_reward = 0
+    trajectory = []   # ✅ REQUIRED
 
-    # TRAIN
+    # 🔥 TRAINING PHASE
     for _ in range(3):
         state = env.reset()
 
@@ -123,21 +127,27 @@ def run():
             if done:
                 break
 
-    # EVALUATION
+    # 🔥 EVALUATION PHASE
     state = env.reset()
 
     for step in range(10):
 
         if step == 0:
-            action = call_llm(state)   # ✅ mandatory API call
+            action = call_llm(state)   # ✅ API call required
         else:
             action = choose_action(state)
 
-        state, reward, done, _ = env.step(action)
+        next_state, reward, done, _ = env.step(action)
+
+        # ✅ STORE TRAJECTORY (VERY IMPORTANT)
+        trajectory.append({
+            "step": step,
+            "action": action,
+            "reward": reward
+        })
 
         total_reward += reward
-        actions_taken.append(action)
-        scores.append(reward)
+        state = next_state
 
         print(f"[STEP] step={step+1} reward={reward}", flush=True)
 
@@ -152,17 +162,19 @@ def run():
 
     print(f"[END] task=FocusX score={total_reward}", flush=True)
 
-    print("\n=== SUMMARY ===", flush=True)
-    print(f"Actions: {actions_taken}", flush=True)
-    print(f"Rewards: {scores}", flush=True)
-
-    if scores:
-        avg = sum(scores) / len(scores)
-        print(f"Average Reward: {avg:.2f}", flush=True)
+    # ✅ FINAL RETURN (CRITICAL)
+    return {
+        "trajectory": trajectory
+    }
 
 
+# 🔥 ENTRY POINT (REQUIRED)
 if __name__ == "__main__":
     try:
-        run()
+        result = run()
+
+        # ✅ MUST PRINT JSON
+        print(json.dumps(result), flush=True)
+
     except Exception as e:
         print(f"[FATAL ERROR] {e}", flush=True)
