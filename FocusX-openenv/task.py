@@ -1,5 +1,20 @@
-TASKS = [
-    {"name": "Easy", "tasks": 2, "max_steps": 10},
-    {"name": "Medium", "tasks": 3, "max_steps": 12},
-    {"name": "Hard", "tasks": 4, "max_steps": 15},
-]
+from grader import grade_focus
+
+def get_tasks():
+    return [
+        {
+            "id": "task1",
+            "name": "focus_task_1",
+            "grader": grade_focus
+        },
+        {
+            "id": "task2",
+            "name": "focus_task_2",
+            "grader": grade_focus
+        },
+        {
+            "id": "task3",
+            "name": "focus_task_3",
+            "grader": grade_focus
+        }
+    ]
