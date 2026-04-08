@@ -1,34 +1,38 @@
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
 from fastapi import FastAPI
+from pydantic import BaseModel
 from env import FocusEnv
 from task import get_tasks
+import uvicorn
 
 app = FastAPI()
-
 env = FocusEnv()
+
+class ActionRequest(BaseModel):
+    action: str
+
+@app.get("/")
+def root():
+    return {"status": "running"}
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 @app.get("/tasks")
-def list_tasks():
+def tasks():
     return get_tasks()
 
 @app.post("/reset")
 def reset():
-    state = env.reset()
-    return {"state": state}
+    return {"state": env.reset()}
 
 @app.post("/step")
-def step(action: dict):
-    state, reward, done, info = env.step(action.get("action"))
-    return {
-        "state": state,
-        "reward": reward,
-        "done": done,
-        "info": info
-    }
+def step(request: ActionRequest):
+    state, reward, done, info = env.step(request.action)
+    return {"state": state, "reward": reward, "done": done, "info": info}
+
+def main():
+    uvicorn.run(app, host="0.0.0.0", port=7860)
+
+if __name__ == "__main__":
+    main()
