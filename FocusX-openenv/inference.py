@@ -1,180 +1,113 @@
-from env import FocusEnv
-import random
 import os
-import requests
-import json
+import asyncio
+from openai import OpenAI
 
-# 🔥 ACTIONS
-ACTIONS = ["study", "rest", "scroll"]
+# ✅ Import your environment
+from my_env_v4 import MyEnvV4Env
 
-# 🔥 Q-TABLE
-Q = {}
+# =========================
+# ENV VARIABLES (MANDATORY)
+# =========================
+API_BASE_URL = os.getenv("API_BASE_URL")
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME")
 
-# 🔥 HYPERPARAMETERS
-alpha = 0.1
-gamma = 0.9
-epsilon = 0.2
+TASK_NAME = os.getenv("MY_ENV_V4_TASK", "echo")
+BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK", "my_env_v4")
+MAX_STEPS = 8
 
+# =========================
+# INIT CLIENT (IMPORTANT)
+# =========================
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=API_KEY
+)
 
-# 🔥 STATE KEY
-def get_state_key(state):
-    return (
-        state["energy"] // 10,
-        state["focus"] // 10,
-        state["distraction"] // 10
-    )
-
-
-# 🔥 ACTION SELECTION
-def choose_action(state):
-    key = get_state_key(state)
-
-    if key not in Q:
-        Q[key] = {a: 0 for a in ACTIONS}
-
-    if random.random() < epsilon:
-        return random.choice(ACTIONS)
-
-    return max(Q[key], key=Q[key].get)
-
-
-# 🔥 Q UPDATE
-def update_q(state, action, reward, next_state):
-    key = get_state_key(state)
-    next_key = get_state_key(next_state)
-
-    if next_key not in Q:
-        Q[next_key] = {a: 0 for a in ACTIONS}
-
-    max_future = max(Q[next_key].values())
-
-    Q[key][action] += alpha * (
-        reward + gamma * max_future - Q[key][action]
-    )
-
-
-# 🔥 LLM CALL (SAFE)
-def call_llm(state):
+# =========================
+# LLM ACTION GENERATOR
+# =========================
+def get_action_from_llm(state):
     try:
-        url = os.environ.get("API_BASE_URL")
-        api_key = os.environ.get("API_KEY")
-        model = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-
-        if not url or not api_key:
-            return "study"
-
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-
-        payload = {
-            "model": model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"""
-Energy: {state['energy']}
-Focus: {state['focus']}
-Distraction: {state['distraction']}
-
-Choose best action:
-study / rest / scroll
-
-Only output one word.
-"""
-                }
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "You are an RL agent."},
+                {"role": "user", "content": f"Current state: {state}. Suggest next action."}
             ],
-            "temperature": 0.3
-        }
+            temperature=0.3,
+        )
 
-        response = requests.post(url, headers=headers, json=payload, timeout=10)
-        data = response.json()
+        action = response.choices[0].message.content.strip()
 
-        text = data["choices"][0]["message"]["content"]
-        action = text.strip().lower()
-
-        if action not in ACTIONS:
-            return "study"
+        # fallback safety
+        if not action:
+            return "noop"
 
         return action
 
     except Exception as e:
-        print(f"[ERROR] LLM failed: {e}", flush=True)
-        return "study"
+        return "noop"
 
 
-# 🔥 MAIN RUN FUNCTION
-def run():
-    env = FocusEnv()
+# =========================
+# MAIN EPISODE RUNNER
+# =========================
+async def run_episode():
+    env = MyEnvV4Env()
 
-    print("[START] task=FocusX", flush=True)
+    state = await env.reset()
 
-    total_reward = 0
-    trajectory = []   # ✅ REQUIRED
+    print(f"[START] task={TASK_NAME} env={BENCHMARK} model={MODEL_NAME}")
 
-    # 🔥 TRAINING PHASE
-    for _ in range(3):
-        state = env.reset()
+    rewards = []
+    success = False
 
-        for _ in range(10):
-            action = choose_action(state)
-            next_state, reward, done, _ = env.step(action)
+    for step in range(1, MAX_STEPS + 1):
+        try:
+            # ✅ LLM call (MANDATORY)
+            action = get_action_from_llm(state)
 
-            update_q(state, action, reward, next_state)
+            result = await env.step(action)
+
+            next_state = result.state
+            reward = float(result.reward)
+            done = result.done
+            error = result.error if result.error else "null"
+
+            rewards.append(f"{reward:.2f}")
+
+            print(
+                f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error={error}"
+            )
+
             state = next_state
 
             if done:
+                success = reward > 0
                 break
 
-    # 🔥 EVALUATION PHASE
-    state = env.reset()
-
-    for step in range(10):
-
-        if step == 0:
-            action = call_llm(state)   # ✅ API call required
-        else:
-            action = choose_action(state)
-
-        next_state, reward, done, _ = env.step(action)
-
-        # ✅ STORE TRAJECTORY (VERY IMPORTANT)
-        trajectory.append({
-            "step": step,
-            "action": action,
-            "reward": reward
-        })
-
-        total_reward += reward
-        state = next_state
-
-        print(f"[STEP] step={step+1} reward={reward}", flush=True)
-
-        try:
-            advice = env.get_advice()
-            print(f"[INFO] action={action} advice={advice}", flush=True)
-        except Exception:
-            pass
-
-        if done:
+        except Exception as e:
+            print(
+                f"[STEP] step={step} action=error reward=0.00 done=true error={str(e)}"
+            )
             break
 
-    print(f"[END] task=FocusX score={total_reward}", flush=True)
+    # =========================
+    # END BLOCK (MANDATORY)
+    # =========================
+    total_steps = len(rewards)
+    score = float(rewards[-1]) if rewards else 0.0
 
-    # ✅ FINAL RETURN (CRITICAL)
-    return {
-        "trajectory": trajectory
-    }
+    print(
+        f"[END] success={str(success).lower()} steps={total_steps} score={score:.2f} rewards={','.join(rewards)}"
+    )
+
+    await env.close()
 
 
-# 🔥 ENTRY POINT (REQUIRED)
+# =========================
+# ENTRY POINT
+# =========================
 if __name__ == "__main__":
-    try:
-        result = run()
-
-        # ✅ MUST PRINT JSON
-        print(json.dumps(result), flush=True)
-
-    except Exception as e:
-        print(f"[FATAL ERROR] {e}", flush=True)
+    asyncio.run(run_episode())
