@@ -2,17 +2,18 @@ name: FocusX-openenv
 version: "0.1.0"
 description: "AI Productivity OpenEnv"
 
-entry_point: main.py   # 🔥 CHANGE THIS
-
 tasks:
   - id: task1
     name: focus_task_1
-    grader: grader.grade_focus
+    grader_module: grader
+    grader_fn: grade_focus
 
   - id: task2
     name: focus_task_2
-    grader: grader.grade_focus
+    grader_module: grader
+    grader_fn: grade_focus
 
   - id: task3
     name: focus_task_3
-    grader: grader.grade_focus
+    grader_module: grader
+    grader_fn: grade_focus
