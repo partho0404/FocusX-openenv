@@ -1,6 +1,7 @@
 import random
 
 class FocusEnv:
+
     def __init__(self):
         self.user_type = random.choice(["lazy", "focused", "distracted"])
         self.reset()
@@ -41,7 +42,7 @@ class FocusEnv:
         if self.user_type == "distracted" and action == "scroll":
             reward -= 15
 
-        # Clamp
+        # Clamp values
         self.energy = max(0, min(100, self.energy))
         self.focus = max(0, min(100, self.focus))
         self.distraction = max(0, min(100, self.distraction))
@@ -49,6 +50,10 @@ class FocusEnv:
         done = self.energy == 0
 
         return self._get_state(), reward, done, {}
+
+    # 🔥 REQUIRED BY OPENENV
+    def state(self):
+        return self._get_state()
 
     def _get_state(self):
         return {
