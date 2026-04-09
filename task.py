@@ -4,17 +4,23 @@ TASKS = [
     {
         "id": "task1",
         "name": "focus_task_1",
-        "grader": "grade_focus"
+        "grader": "grade_focus",
+        "grader_module": "grader",
+        "grader_fn": "grade_focus"
     },
     {
         "id": "task2",
         "name": "focus_task_2",
-        "grader": "grade_focus"
+        "grader": "grade_focus",
+        "grader_module": "grader",
+        "grader_fn": "grade_focus"
     },
     {
         "id": "task3",
         "name": "focus_task_3",
-        "grader": "grade_focus"
+        "grader": "grade_focus",
+        "grader_module": "grader",
+        "grader_fn": "grade_focus"
     }
 ]
 
