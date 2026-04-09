@@ -2,6 +2,8 @@ name: FocusX-openenv
 version: "0.1.0"
 description: "AI Productivity OpenEnv"
 
+entry_point: main.py   # 🔥 CHANGE THIS
+
 tasks:
   - id: task1
     name: focus_task_1
