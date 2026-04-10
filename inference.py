@@ -116,3 +116,9 @@ def run():
 # =========================
 if __name__ == "__main__":
     run()
+
+def main():
+    # Run all tasks when server starts
+    tasks = ["focus_task_1", "focus_task_2", "focus_task_3"]
+    for task in tasks:
+        run_task(task)
